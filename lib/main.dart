@@ -48,7 +48,7 @@ class _MyHomePageState extends State<MyHomePage> {
     String response;
     print("*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-");
     try {
-      final bool result = await platform.invokeMethod('getAResponse', l);
+      final String result = await platform.invokeMethod('getAResponse',  {"paths" : l});
       response = 'Response for java part = $result';
     } on PlatformException catch (e) {
       response = "Failed to get a response level: '${e.message}'.";
@@ -80,7 +80,7 @@ class _MyHomePageState extends State<MyHomePage> {
       print(albumMedia);
       print("---------------------------------------------------");
       print("---------------------------------------------------");
-      AssetEntity media; int i=10; File tempFile, newImage;
+      AssetEntity media; int i=20; File tempFile, newImage;
       List<String> listPaths = [];
       for (media in albumMedia){
 
@@ -111,7 +111,8 @@ class _MyHomePageState extends State<MyHomePage> {
       _getAResponse(listPaths);
       
       setState(() {
-        _image = newImage;
+        print("\n\n\n");
+        _image = tempFile;
       });
     } else {
       // fail

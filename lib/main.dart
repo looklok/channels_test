@@ -7,6 +7,7 @@ import 'package:path/path.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
+import 'Utils.dart';
 
 void main() => runApp(MyApp());
 
@@ -17,7 +18,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Flutter Demo',
       theme: ThemeData(
-         primarySwatch: Colors.indigo,
+        primarySwatch: Colors.indigo,
       ),
       home: MyHomePage(title: 'Home Page'),
     );
@@ -33,183 +34,205 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-
-  File _image ;
+  File _image;
   String _response = "nothing";
+  int number = 0; String _path = null;
+  Map<dynamic, dynamic> bboxes;
   static const platform = const MethodChannel('hello.channels.test/photos');
 
-  void initState(){
+  void initState() {
     super.initState();
-    
   }
 
+  Future<void> _getAResponse(List<String> l) async {
 
-  Future<void> _getAResponse(List<String> l ) async {   //as simple as it can be
     String response;
     print("*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-");
     try {
-      final String result = await platform.invokeMethod('getAResponse',  {"paths" : l});
-      response = 'Response for java part = $result';
+
+      bboxes =await platform.invokeMethod('getAResponse', {"paths": l, "number": number});
+      print(bboxes);
+      print('Response for java part');
+      response = 'Response for java part';
+
     } on PlatformException catch (e) {
+      bboxes = Map();
       response = "Failed to get a response level: '${e.message}'.";
-    } 
+    } on Exception catch (e){
+      print(e);
+      print("errrooooot");
+      bboxes = Map();
+    }
 
     setState(() {
       _response = response;
     });
   }
 
-
-
   _fetchNewMedia() async {
-
     var result = await PhotoManager.requestPermission();
     if (result) {
-      // success
+      // app directory
       Directory appDocDir = await getApplicationDocumentsDirectory();
       String appDocPath = appDocDir.path;
       print(appDocPath);
 
       //load the album list
-      
+
       List<AssetPathEntity> albums = await PhotoManager.getAssetPathList();
       print(albums);
-      print("---------------------------------------------------");
-      print("---------------------------------------------------");
       List<AssetEntity> albumMedia = await albums[0].getAssetListPaged(0, 20);
       print(albumMedia);
-      print("---------------------------------------------------");
-      print("---------------------------------------------------");
-      AssetEntity media; int i=20; File tempFile, newImage;
+      
+      AssetEntity media; int i = 20; File tempFile, newImage;
       List<String> listPaths = [];
-      for (media in albumMedia){
-
-        if (media.type == AssetType.image){
+      for (media in albumMedia) {
+        if (media.type == AssetType.image) {
           tempFile = await media.originFile;
-          print(tempFile.path);
-          var fileName = basename(tempFile.path);
-          print(fileName);
+
+          /*var fileName = basename(tempFile.path);
+          print(fileName);*/
 
           //newImage = await tempFile.copy('$appDocPath/$fileName');
           listPaths.add(tempFile.path);
           print(tempFile.path);
 
-          i-=1; 
-          if(i==0) break;
-
-        }        
-
+          i -= 1;
+          if (i == 0) break;
+        }
       }
 
-      print("the list of paths to pass : ----------------------------------------------");
+      print( "the list of paths to pass : ----------------------------------------------");
       print(listPaths);
 
+      _path = listPaths[number];
       /*print("the content of the app directory: **********************************");
       var dir = Directory('$appDocPath');
       print(dir.listSync(recursive: true));*/
-      
+
       _getAResponse(listPaths);
-      
+
+      //_image = await albumMedia[number].originFile;
+
       setState(() {
         print("\n\n\n");
-        _image = tempFile;
       });
     } else {
       // fail
     }
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+        appBar: AppBar(
+          title: Text(widget.title),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              /*Container(
+                height: 224,
+                decoration: BoxDecoration(
+                    image: DecorationImage(
+                  image: _image != null
+                      ? Image.file(_image).image
+                      : AssetImage(
+                          'assets/images/robot.jpg'), // <-- Expecting ImageProvider
+                )),
+              ),*/
+              (_path!= null && bboxes != null) ? ImageWidget(path:_path, color: img.getColor(255, 0, 0), bounding_boxes : bboxes ) : Image.asset('assets/images/robot.jpg'),
+              const SizedBox(
+                height: 20,
+              ),
+              TextField(
+                onSubmitted: (value) {
+                  number = int.parse(value);
+                },
+                keyboardType: TextInputType.number ,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: 'number of the image',
+                ),
+              ),
+              const SizedBox(
+                height: 20,
+              ),
+              RaisedButton(
+                onPressed: _fetchNewMedia,
+                child:
+                    const Text('get an image', style: TextStyle(fontSize: 20)),
+              ),
+              SizedBox(
+                height: 20,
+              ),
+              Text(_response),
+            ],
+          ),
+        ));
+  }
+}
+
+class ImageWidget extends StatelessWidget {
+  String path;
+  int x, y, w, h, color; 
+  Map<dynamic, dynamic> bounding_boxes;
+
+  ImageWidget({ this.path, this.bounding_boxes, this.color});
   
   @override
   Widget build(BuildContext context) {
-    
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
-      body: Center(
-        
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-           Container(
-              height: 200,
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: _image != null ? Image.file(_image).image : AssetImage('assets/images/robot.jpg'),  // <-- Expecting ImageProvider
-                )
-              ),
-            ),
-            const SizedBox(height: 20,),
-            RaisedButton(
-              onPressed: _fetchNewMedia ,
-              child: const Text(
-                'get an image',
-                style: TextStyle(fontSize: 20)
-              ),
-            
-            ),
-            SizedBox(height: 20,),
-            Text(_response),
-           // ImageWidget(x: 0,y: 0, w: 200, h: 200, path:"/storage/emulated/0/DCIM/Camera/20200806_193622.jpg", color: img.getColor(255, 0, 0),),
-          ],
-        ),
-        
-        )
-    );
-  }
-}
-class ImageWidget extends StatelessWidget {
-  String path;
-  int x,y,w,h, color; 
-  ImageWidget({this.x, this.y, this.h, this.w, this.path, this.color });
-  @override
-  Widget build(BuildContext context) {
-    
-    
-    return FutureBuilder(builder: (context, snap){
-        if (snap.connectionState == ConnectionState.none || snap.connectionState == ConnectionState.waiting || snap.data == null ||
-          snap.hasData == null) {
-        print('project snapshot data is: ${snap.data}');
-        return Container(color: Colors.black, height: 50, width: 50,);
-        }else{
-            print("snappppppppp"+snap.data.toString());
-            return Image.file(File("${snap.data}/photo.jpg"));
+    return FutureBuilder(
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.none || snap.connectionState == ConnectionState.waiting ||
+            snap.data == null || snap.hasData == null) {
+          print('project snapshot data is: ${snap.data}');
+          return Container(
+            color: Colors.black,
+            height: 50,
+            width: 50,
+          );
+        } else {
+          print("snappppppppp    " + snap.data.toString());
+          return snap.data;
         }
-        
-    },
-    future: preprocessingGetInfo(),
+      },
+      future: preprocessing(),
     );
-    
-    
-    
   }
 
-  Future<String> preprocessingGetInfo() async {
-    var result = await PhotoManager.requestPermission();
-    print(result);
+  Future<Widget> preprocessing() async {
+    /*var result = await PhotoManager.requestPermission();
+    print(result);*/
     print("dakhla");
-    print(this.path);
+    //print(this.path);
     Directory appDocDir = await getApplicationDocumentsDirectory();
     String appDocPath = appDocDir.path;
     print(appDocPath);
+    var fileName = basename(this.path);
+    img.Image photo ; String imagePath = "${appDocPath}/${fileName}photo5.jpg";
     try {
-      print("begin");    
-      img.Image photo = img.decodeJpg(File(this.path).readAsBytesSync());
+      print("begin");
+      photo = img.decodeImage(File(this.path).readAsBytesSync());
       print("${photo.height} width ${photo.width}");
       //photo = img.gaussianBlur(photo, 20);
-      photo= img.copyResize(photo, width: 300, height: 300);
+     // photo = img.copyResize(photo, width: 300, height: 300);
+      photo = Utils.resizeImage(photo);
       print("${photo.height} width ${photo.width}");
-      photo= img.drawLine(photo, 0, 0, 300, 240, img.getColor(255, 0, 0), thickness: 15);
-      photo= img.drawRect(photo, this.x, this.y , this.x+this.w, this.y+this.h , this.color);
+      print(bounding_boxes);
+      for ( List box in bounding_boxes.values){
+        photo = Utils.drawRectangle(photo, box, img.getColor(255, 0, 0));
+      }
+      /*photo = img.drawLine(photo, 0, 0, 300, 240, img.getColor(255, 0, 0),
+          thickness: 5);*/
       print("end1");
-      File("${appDocPath}/photo.jpg").writeAsBytesSync(img.encodeJpg(photo));
+      
+      File(imagePath).writeAsBytesSync(img.encodeJpg(photo));
       print("end2");
     } on Exception catch (e) {
-          print(e.toString());
+      print(e.toString());
     }
-    return appDocPath;
+    return  Image.file(File("${imagePath}"));
   }
-
-
 }
-

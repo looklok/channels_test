@@ -6,6 +6,8 @@ import org.pytorch.Module;
 import org.pytorch.IValue;
 import org.pytorch.torchvision.TensorImageUtils;
 
+import java.util.*;
+
 
 public class Classifier {
 
@@ -51,22 +53,34 @@ public class Classifier {
         return maxIndex;
     }
 
-    public String predict(Bitmap bitmap){
-
+    public Object [] predict(Bitmap bitmap){
+        long start, end, elapsedTime;
+        
         Tensor tensor = preprocess(bitmap,224);
-
         IValue inputs = IValue.from(tensor);
+        
+        start = System.nanoTime();
         Tensor outputs = model.forward(inputs).toTensor();
+        end = System.nanoTime();
         float[] scores = outputs.getDataAsFloatArray();
-
         int classIndex = argMax(scores);
         
-        System.out.println(scores[classIndex]);
-        System.out.println(scores[0]);
-        System.out.println(scores[10]);
+        elapsedTime = end - start;
+        
+        double[] scoresD = Utils.convertFloatsToDoubles(scores);
+        double prob = softmax(scoresD[classIndex], scoresD );
+        
+        System.out.println("infrence time for this pass is : "+ ((int) (elapsedTime / 1000000)) +" ms");
+        //System.out.println("the probability of this class is :"+ prob);
+        Object [] result = {classIndex, prob};
 
-        return Constants.IMAGENET_CLASSES[classIndex];
+        return result;
 
+    }
+
+    private double softmax(double input, double[] neuronValues) {
+        double total = Arrays.stream(neuronValues).map(Math::exp).sum();
+        return Math.exp(input) / total;
     }
 
 }
